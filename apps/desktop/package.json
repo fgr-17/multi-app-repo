@@ -1,0 +1,14 @@
+{
+  "name": "@hola/desktop",
+  "private": true,
+  "version": "0.0.1",
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron .",
+    "lint": "echo ok"
+  },
+  "devDependencies": {
+    "electron": "^35.1.5"
+  }
+}

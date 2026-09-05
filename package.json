@@ -1,0 +1,24 @@
+{
+  "name": "hola-ecosystem",
+  "private": true,
+  "packageManager": "pnpm@10.34.5",
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:api": "pnpm --filter @hola/api dev",
+    "dev:web": "pnpm --filter @hola/web dev",
+    "dev:mobile": "pnpm --filter @hola/mobile dev",
+    "dev:desktop": "pnpm --filter @hola/desktop dev",
+    "build": "turbo build",
+    "lint": "turbo lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "19.2.3",
+      "react-dom": "19.2.3"
+    },
+    "onlyBuiltDependencies": ["electron", "unrs-resolver"]
+  }
+}

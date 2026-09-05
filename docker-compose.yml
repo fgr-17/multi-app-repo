@@ -1,0 +1,8 @@
+services:
+  api:
+    build: ./apps/api
+    ports:
+      - "8080:8080"
+    environment:
+      GREETING_NAME: ${GREETING_NAME:-Mundo}
+      PORT: "8080"

@@ -1,0 +1,41 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# next
+apps/web/.next
+apps/web/out
+
+# expo
+apps/mobile/.expo
+apps/mobile/dist
+apps/mobile/web-build
+
+# electron
+apps/desktop/dist
+apps/desktop/out
+
+# go
+apps/api/bin
+apps/api/server
+*.exe
+
+# env / os
+.env
+.env.local
+.env.*.local
+.DS_Store
+Thumbs.db
+
+# logs / coverage
+*.log
+coverage
+.turbo
+
+# ide
+.idea
+.vscode
+*.swp
+
+# agent internals
+agent-tools
