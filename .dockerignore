@@ -1,0 +1,13 @@
+.git
+.gitignore
+agent-tools
+node_modules
+**/.next
+**/.expo
+**/dist
+**/bin
+**/*.log
+.turbo
+.pnpm-store
+README.md
+Makefile

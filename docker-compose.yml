@@ -1,3 +1,5 @@
+name: hola
+
 services:
   db:
     image: postgres:16-alpine
@@ -17,15 +19,74 @@ services:
       retries: 20
 
   api:
-    build: ./apps/api
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
     ports:
       - "8080:8080"
     environment:
       PORT: "8080"
       DATABASE_URL: postgres://hola:hola@db:5432/hola?sslmode=disable
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
     depends_on:
       db:
         condition: service_healthy
 
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./apps/web/src:/app/apps/web/src
+      - ./packages/api-client/src:/app/packages/api-client/src
+    depends_on:
+      api:
+        condition: service_healthy
+
+  mobile:
+    profiles: ["mobile"]
+    build:
+      context: .
+      dockerfile: docker/mobile.Dockerfile
+    ports:
+      - "8081:8081"
+      - "19000:19000"
+      - "19001:19001"
+      - "19002:19002"
+    environment:
+      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:8080}
+      REACT_NATIVE_PACKAGER_HOSTNAME: ${HOST_IP:-localhost}
+    volumes:
+      - ./apps/mobile:/app/apps/mobile
+      - ./packages/api-client/src:/app/packages/api-client/src
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api-test:
+    profiles: ["test"]
+    image: golang:1.22-alpine
+    working_dir: /src
+    volumes:
+      - ./apps/api:/src
+      - go-mod:/go/pkg/mod
+    command: go test ./...
+
+  client-test:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: docker/client-test.Dockerfile
+
 volumes:
   pgdata:
+  go-mod:
