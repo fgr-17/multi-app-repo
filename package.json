@@ -4,7 +4,8 @@
   "packageManager": "pnpm@10.34.5",
   "scripts": {
     "dev": "turbo dev",
-    "dev:api": "pnpm --filter @hola/api dev",
+    "dev:db": "bash scripts/start-db.sh",
+    "dev:api": "DATABASE_URL=${DATABASE_URL:-postgres://hola:hola@localhost:5432/hola?sslmode=disable} pnpm --filter @hola/api dev",
     "dev:web": "pnpm --filter @hola/web dev",
     "dev:mobile": "pnpm --filter @hola/mobile dev",
     "dev:desktop": "pnpm --filter @hola/desktop dev",
@@ -19,6 +20,6 @@
       "react": "19.2.3",
       "react-dom": "19.2.3"
     },
-    "onlyBuiltDependencies": ["electron", "unrs-resolver"]
+    "onlyBuiltDependencies": ["electron", "esbuild", "unrs-resolver"]
   }
 }

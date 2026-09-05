@@ -1,23 +1,35 @@
-export type HelloResponse = {
-  name: string;
-};
+import type { SyncStatus } from "./types";
 
-export function defaultApiUrl(): string {
-  return (
-    (typeof process !== "undefined" && process.env.EXPO_PUBLIC_API_URL) ||
-    (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_URL) ||
-    (typeof process !== "undefined" && process.env.API_URL) ||
-    "http://localhost:8080"
-  );
-}
+export type {
+  GreetingRecord,
+  GreetingSnapshot,
+  KvStore,
+  LocalGreeting,
+  SyncStatus,
+} from "./types";
+export { isNewer } from "./lww";
+export { memoryKvStore, webKvStore, wrapKvStore } from "./store";
+export {
+  apiRoot,
+  defaultApiUrl,
+  fetchHello,
+  pingHealth,
+  putHello,
+} from "./client";
+export { GreetingSync } from "./sync";
+export type { GreetingSyncOptions } from "./sync";
 
-export async function fetchHello(
-  apiBaseUrl: string = defaultApiUrl(),
-): Promise<HelloResponse> {
-  const url = `${apiBaseUrl.replace(/\/$/, "")}/api/hello`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`API ${res.status} al pedir ${url}`);
+export function statusLabel(status: SyncStatus): string {
+  switch (status) {
+    case "offline":
+      return "sin conexión · cambios locales";
+    case "syncing":
+      return "reconciliando…";
+    case "pending":
+      return "pendiente de subir";
+    case "synced":
+      return "sincronizado con postgres";
+    case "error":
+      return "error de sync";
   }
-  return (await res.json()) as HelloResponse;
 }

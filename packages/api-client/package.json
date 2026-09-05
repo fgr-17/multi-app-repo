@@ -9,6 +9,15 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "test": "tsx --test src/sync.test.ts",
+    "bundle:desktop": "esbuild src/index.ts --bundle --format=iife --global-name=hola --outfile=../../apps/desktop/renderer/hola.js --platform=browser",
     "lint": "echo ok"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.4",
+    "tsx": "^4.20.3"
   }
 }

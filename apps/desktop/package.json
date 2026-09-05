@@ -4,8 +4,8 @@
   "version": "0.0.1",
   "main": "main.cjs",
   "scripts": {
-    "dev": "electron .",
-    "start": "electron .",
+    "dev": "pnpm --filter @hola/api-client bundle:desktop && electron .",
+    "start": "pnpm --filter @hola/api-client bundle:desktop && electron .",
     "lint": "echo ok"
   },
   "devDependencies": {

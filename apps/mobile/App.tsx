@@ -1,41 +1,78 @@
-import { fetchHello } from "@hola/api-client";
+import {
+  GreetingSync,
+  statusLabel,
+  wrapKvStore,
+  type GreetingSnapshot,
+} from "@hola/api-client";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 function resolveApiUrl(): string {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
-  // Android emulator no ve localhost de la máquina host.
   if (Platform.OS === "android") {
     return "http://10.0.2.2:8080";
   }
   return "http://localhost:8080";
 }
 
+const empty: GreetingSnapshot = {
+  greeting: null,
+  online: false,
+  status: "offline",
+  error: null,
+};
+
 export default function App() {
   const apiUrl = resolveApiUrl();
-  const [name, setName] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const store = useMemo(() => wrapKvStore(AsyncStorage, "hola-mobile:"), []);
+  const sync = useMemo(() => new GreetingSync({ apiUrl, store }), [apiUrl, store]);
+  const [snap, setSnap] = useState<GreetingSnapshot>(empty);
+  const [draft, setDraft] = useState("");
+  const name = snap.greeting?.name;
 
   useEffect(() => {
-    fetchHello(apiUrl)
-      .then((data) => setName(data.name))
-      .catch((err: Error) => setError(err.message));
-  }, [apiUrl]);
+    const unsub = sync.subscribe(setSnap);
+    void sync.start();
+    return () => {
+      unsub();
+      sync.stop();
+    };
+  }, [sync]);
 
   return (
     <View style={styles.container}>
       <Text style={styles.eyebrow}>Mobile · iOS / Android</Text>
       <Text style={styles.title}>{name ? `Hola ${name}` : "Hola …"}</Text>
       <Text style={styles.status}>
-        {error
-          ? `no pude hablar con el API: ${error}`
-          : name
-            ? `nombre servido por ${apiUrl}/api/hello`
-            : "pidiendo el nombre al API de Go…"}
+        {snap.error ? `${statusLabel(snap.status)}: ${snap.error}` : statusLabel(snap.status)}
       </Text>
+      <TextInput
+        value={draft}
+        onChangeText={setDraft}
+        placeholder={name ?? "nombre"}
+        placeholderTextColor="#8a837a"
+        style={styles.input}
+      />
+      <Pressable
+        onPress={() => {
+          void sync.setName(draft || name || "");
+          setDraft("");
+        }}
+        style={styles.button}
+      >
+        <Text style={styles.buttonLabel}>Guardar</Text>
+      </Pressable>
       <StatusBar style="dark" />
     </View>
   );
@@ -65,5 +102,28 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontSize: 14,
     color: "#6b645c",
+  },
+  input: {
+    marginTop: 24,
+    borderWidth: 1,
+    borderColor: "#d9d0c3",
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: "#1c1916",
+  },
+  button: {
+    marginTop: 12,
+    alignSelf: "flex-start",
+    backgroundColor: "#1c1916",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  buttonLabel: {
+    color: "#f4efe6",
+    fontSize: 14,
   },
 });

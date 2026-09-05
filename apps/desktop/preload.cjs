@@ -1,5 +1,5 @@
 const { contextBridge } = require("electron");
 
-contextBridge.exposeInMainWorld("hola", {
+contextBridge.exposeInMainWorld("holaEnv", {
   apiUrl: process.env.API_URL || "http://localhost:8080",
 });
