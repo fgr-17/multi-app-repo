@@ -9,6 +9,7 @@ import (
 
 	"github.com/hola/api/internal/greeting"
 	"github.com/hola/api/internal/httputil"
+	"github.com/hola/api/internal/user"
 )
 
 func main() {
@@ -32,6 +33,12 @@ func main() {
 
 	store := greeting.ReadThrough{Writes: writes, Reads: reads}
 
+	users, err := waitUsers(ctx, greeting.DatabaseURL())
+	if err != nil {
+		log.Fatalf("users: %v", err)
+	}
+	defer users.Close()
+
 	addr := os.Getenv("PORT")
 	if addr == "" {
 		addr = "8080"
@@ -40,11 +47,31 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("GET /health", greeting.Health(store))
 	mux.Handle("GET /api/events", greeting.EventsHandler(writes.List))
+	usersH := user.Handler(users)
+	mux.Handle("GET /api/users", usersH)
+	mux.Handle("POST /api/users", usersH)
+	mux.Handle("GET /api/users/{id}", usersH)
 	mux.Handle("/", greeting.Handler(store))
 
-	log.Printf("api listening on :%s (event store + cqrs)", addr)
+	log.Printf("api listening on :%s (events + users)", addr)
 	if err := http.ListenAndServe(":"+addr, httputil.CORS(mux)); err != nil {
 		log.Fatal(err)
+	}
+}
+
+func waitUsers(ctx context.Context, url string) (*user.Postgres, error) {
+	var last error
+	for {
+		store, err := user.Open(ctx, url)
+		if err == nil {
+			return store, nil
+		}
+		last = err
+		select {
+		case <-ctx.Done():
+			return nil, last
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
 }
 

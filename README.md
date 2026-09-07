@@ -14,25 +14,27 @@ make up
 ## Cómo está partido
 
 ```
+  usuarios  ── CRUD ──►  Postgres.users          (relacional)
   PUT /api/hello  →  comando
                       │
                       ▼
-                 Postgres          Kafka           Mongo
-               (event store     (log / bus)    (read model)
-                + outbox)            │         documento actual
-                      │              │
-                      └── relay ─────┘── projector ──► greeting
+                 Postgres.events     Kafka         Mongo
+                 + outbox         (log / bus)   greeting actual
+                      └── relay ─────┘── projector ──►
 ```
 
 | Pieza | Rol |
 | --- | --- |
-| **Postgres `events`** | Event store. Append-only, PK `(stream_id, version)`. |
+| **Postgres `users`** | Identidad relacional (id, email, nombre, ciudad). CRUD, no event sourcing. |
+| **Postgres `events`** | Event store del saludo. Append-only, PK `(stream_id, version)`. |
 | **Postgres `outbox`** | Publicación atómica con el evento. El relay lo manda a Kafka. |
 | **Kafka `greeting.events`** | Log distribuido. Fan-out a N consumidores. |
 | **Mongo `greeting`** | Read model CQRS: un documento con el nombre actual. |
 | **Clientes** | Cache local + LWW. No hablan Kafka. |
 
 `GET /api/hello` lee Mongo. Si la proyección está vacía o atrás, el API **replayea** el stream de Postgres.
+
+Si venías de la versión que guardaba una fila `greeting`, corré `make clean` una vez para recrear volúmenes.
 
 ## Mongo: ¿sirve para event sourcing?
 
@@ -63,5 +65,12 @@ Las apps no cambian: editan local y reconcilian con `PUT`. El API decide LWW con
 GET  /api/hello
 PUT  /api/hello   { "name", "updatedAt", "updatedBy" }
 GET  /api/events
+GET  /api/users
+GET  /api/users/{id}
+POST /api/users
 GET  /health
 ```
+
+Los usuarios **no** van a Kafka: son un agregado relacional (joins, unique email, datos personales). El saludo sí, porque es un hecho que otros sistemas pueden proyectar.
+
+Identidad vive en Postgres porque querés constraints (`email` único), consultas por ciudad/país y updates in-place. El saludo vive en el event store porque el hecho “se llamó X” se proyecta a Mongo y a lo que venga.

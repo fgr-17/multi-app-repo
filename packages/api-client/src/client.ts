@@ -1,4 +1,4 @@
-import type { GreetingRecord } from "./types";
+import type { GreetingRecord, User } from "./types";
 
 export function defaultApiUrl(): string {
   return (
@@ -41,6 +41,17 @@ export async function putHello(
     record: (await res.json()) as GreetingRecord,
     accepted: res.status === 200,
   };
+}
+
+export async function fetchUsers(
+  apiBaseUrl: string = defaultApiUrl(),
+): Promise<User[]> {
+  const url = `${apiRoot(apiBaseUrl)}/api/users`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`API ${res.status} al pedir ${url}`);
+  }
+  return (await res.json()) as User[];
 }
 
 export async function pingHealth(apiBaseUrl: string = defaultApiUrl()): Promise<boolean> {

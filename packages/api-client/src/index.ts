@@ -6,6 +6,7 @@ export type {
   KvStore,
   LocalGreeting,
   SyncStatus,
+  User,
 } from "./types";
 export { isNewer } from "./lww";
 export { memoryKvStore, webKvStore, wrapKvStore } from "./store";
@@ -13,6 +14,7 @@ export {
   apiRoot,
   defaultApiUrl,
   fetchHello,
+  fetchUsers,
   pingHealth,
   putHello,
 } from "./client";

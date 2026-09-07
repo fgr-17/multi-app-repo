@@ -22,3 +22,17 @@ export type KvStore = {
   getItem(key: string): Promise<string | null>;
   setItem(key: string, value: string): Promise<void>;
 };
+
+export type User = {
+  id: string;
+  email: string;
+  givenName: string;
+  familyName: string;
+  displayName: string;
+  phone: string;
+  city: string;
+  country: string;
+  locale: string;
+  createdAt: string;
+  updatedAt: string;
+};
