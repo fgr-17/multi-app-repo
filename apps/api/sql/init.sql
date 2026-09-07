@@ -1,11 +1,19 @@
-CREATE TABLE IF NOT EXISTS greeting (
-    id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-    name TEXT NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL,
-    updated_by TEXT NOT NULL,
-    version BIGINT NOT NULL
+CREATE TABLE IF NOT EXISTS events (
+    stream_id TEXT NOT NULL,
+    version BIGINT NOT NULL,
+    type TEXT NOT NULL,
+    payload JSONB NOT NULL,
+    occurred_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (stream_id, version)
 );
 
-INSERT INTO greeting (id, name, updated_at, updated_by, version)
-VALUES (1, 'Mundo', NOW(), 'seed', 1)
-ON CONFLICT (id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS outbox (
+    id BIGSERIAL PRIMARY KEY,
+    stream_id TEXT NOT NULL,
+    version BIGINT NOT NULL,
+    payload JSONB NOT NULL,
+    published BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS outbox_unpublished_idx ON outbox (id) WHERE NOT published;

@@ -1,83 +1,67 @@
 # Hola ecosystem
 
-Monorepo de un producto que corre en **web**, **iOS/Android** y **desktop**. El nombre vive en **Postgres**. Cada cliente edita **offline** y al volver la red se reconcilia (last-write-wins).
+Monorepo de un producto que corre en **web**, **iOS/Android** y **desktop**. El nombre se modela con **event sourcing + CQRS**. Las apps siguen editando **offline** (last-write-wins).
 
-En el host solo hace falta **Docker** y **Make**. Go, Node, pnpm y Postgres corren adentro de los contenedores.
+En el host solo hace falta **Docker** y **Make**.
 
 ```
-make up          # Postgres + API Go + Next.js
-# http://localhost:3000  →  Hola {nombre}
-# http://localhost:8080/api/hello
+make up
+# http://localhost:3000              → Hola {nombre}
+# http://localhost:8080/api/hello    → read model (Mongo) o replay
+# http://localhost:8080/api/events   → log de hechos (Postgres)
 ```
 
-Elegí Make y no Bazel: Make ya está en Linux/macOS y no suma otra toolchain.
+## Cómo está partido
+
+```
+  PUT /api/hello  →  comando
+                      │
+                      ▼
+                 Postgres          Kafka           Mongo
+               (event store     (log / bus)    (read model)
+                + outbox)            │         documento actual
+                      │              │
+                      └── relay ─────┘── projector ──► greeting
+```
+
+| Pieza | Rol |
+| --- | --- |
+| **Postgres `events`** | Event store. Append-only, PK `(stream_id, version)`. |
+| **Postgres `outbox`** | Publicación atómica con el evento. El relay lo manda a Kafka. |
+| **Kafka `greeting.events`** | Log distribuido. Fan-out a N consumidores. |
+| **Mongo `greeting`** | Read model CQRS: un documento con el nombre actual. |
+| **Clientes** | Cache local + LWW. No hablan Kafka. |
+
+`GET /api/hello` lee Mongo. Si la proyección está vacía o atrás, el API **replayea** el stream de Postgres.
+
+## Mongo: ¿sirve para event sourcing?
+
+**No como event store.** Un event store quiere: append ordenado, unicidad `(stream, version)`, replay barato, retención larga. Postgres (tabla `events`) hace eso con una transacción. Mongo puede guardar documentos de eventos, pero no es un log: las queries son por documento, el orden global es más débil, y no reemplaza a Kafka como bus.
+
+**Sí como modelo de lectura.** Acá Mongo guarda `{ _id: "greeting", name, updatedAt, updatedBy, version }`. Eso escala lecturas, admite documentos más ricos después (perfil, preferencias, estado por device) y se reconstruye desde Kafka si lo borramos.
+
+También serviría para: sesiones, inbox de sync por dispositivo, o un catálogo si el saludo deja de ser un singleton. No para el historial de hechos.
 
 ## Comandos
 
 ```bash
-make help
-make doctor          # ¿hay Docker?
-make up              # db + api + web
+make up          # postgres + mongo + kafka + api + relay + projector + web
 make logs
-make test            # tests de API y sync, en contenedores
-make psql
-make mobile          # Metro/Expo (perfil extra)
+make test
+make psql        # event store
+make mongosh     # read model
 make down
-make clean           # contenedores + volúmenes
-```
-
-`make desktop` no levanta Electron: una ventana nativa no se dockeriza bien en Win/Mac. La UI es la de `make up` (http://localhost:3000).
-
-### Mobile
-
-```bash
-make mobile
-```
-
-En el teléfono, Expo Go contra el Metro del contenedor. El API tiene que ser alcanzable desde el device:
-
-| Dónde corre la app | URL del API |
-| --- | --- |
-| Expo en la misma máquina | `http://localhost:8080` |
-| Android emulator | `http://10.0.2.2:8080` |
-| Teléfono físico | `http://<IP-LAN>:8080` (`make mobile` intenta inyectar `HOST_IP`) |
-
-## Estructura
-
-```
-Makefile              único entrypoint
-docker-compose.yml
-docker/
-  api.Dockerfile
-  web.Dockerfile
-  mobile.Dockerfile
-  client-test.Dockerfile
-apps/
-  api/                Go + Postgres
-  web/                Next.js
-  mobile/             Expo
-  desktop/            Electron opcional (fuera de Docker)
-packages/
-  api-client/         sync offline compartido
 ```
 
 ## Offline
 
-Cada cliente guarda `{ name, updatedAt, updatedBy, version, dirty }` en storage local.
-
-1. Leer / editar pega primero en local.
-2. Si hay red y lo local es más nuevo → `PUT /api/hello`.
-3. Si Postgres es más nuevo, gana la DB.
-4. Al volver online se vuelve a reconciliar.
+Las apps no cambian: editan local y reconcilian con `PUT`. El API decide LWW contra el estado foldeado del stream y, si gana, **append** un `GreetingRenamed` (no un `UPDATE` de fila).
 
 ## API
 
 ```http
-GET /api/hello
-PUT /api/hello
-Content-Type: application/json
-
-{ "name": "Ada", "updatedAt": "2026-09-05T20:00:00Z", "updatedBy": "device-id" }
+GET  /api/hello
+PUT  /api/hello   { "name", "updatedAt", "updatedBy" }
+GET  /api/events
+GET  /health
 ```
-
-`200` si aceptó el write, `409` si el row de Postgres era más nuevo.

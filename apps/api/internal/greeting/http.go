@@ -74,6 +74,20 @@ func Handler(store Store) http.Handler {
 	return mux
 }
 
+func EventsHandler(list func() ([]Event, error)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		events, err := list()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if events == nil {
+			events = []Event{}
+		}
+		writeJSON(w, http.StatusOK, events)
+	}
+}
+
 func Health(store Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := store.Ping(); err != nil {

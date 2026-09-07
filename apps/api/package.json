@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "dev": "go run ./cmd/server",
-    "build": "go build -o bin/server ./cmd/server",
+    "dev:relay": "go run ./cmd/relay",
+    "dev:projector": "go run ./cmd/projector",
+    "build": "go build -o bin/server ./cmd/server && go build -o bin/relay ./cmd/relay && go build -o bin/projector ./cmd/projector",
     "test": "go test ./..."
   }
 }

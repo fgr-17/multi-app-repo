@@ -5,24 +5,26 @@ HOST_IP ?= $(shell ip route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<=NF;i++) 
 .DEFAULT_GOAL := help
 
 .PHONY: help doctor up down stop logs ps restart \
-	db api web mobile test test-api test-client psql \
+	db api web mobile test test-api test-client psql mongosh \
 	build clean desktop
 
 help: ## lista los targets
 	@awk 'BEGIN {FS = ":.*##"; printf "\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  make %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@printf "\nEn el host alcanza con Docker y Make.\n"
-	@printf "Web http://localhost:3000   API http://localhost:8080\n\n"
+	@printf "Web http://localhost:3000   API http://localhost:8080\n"
+	@printf "Eventos GET http://localhost:8080/api/events\n\n"
 
 doctor: ## chequea que Docker y Compose estén
 	@command -v docker >/dev/null || { echo "falta docker"; exit 1; }
 	@$(COMPOSE) version >/dev/null
 	@echo "ok: docker + compose"
 
-up: ## db + api + web (todo en contenedores)
-	$(COMPOSE) up --build -d db api web
+up: ## postgres + mongo + kafka + api + relay + projector + web
+	$(COMPOSE) up --build -d db mongo kafka api relay projector web
 	@echo
-	@echo "web  http://localhost:3000"
-	@echo "api  http://localhost:8080/api/hello"
+	@echo "web       http://localhost:3000"
+	@echo "api       http://localhost:8080/api/hello"
+	@echo "eventos   http://localhost:8080/api/events"
 
 down: ## para y borra contenedores
 	$(COMPOSE) --profile mobile --profile test down
@@ -30,23 +32,23 @@ down: ## para y borra contenedores
 stop: ## para sin borrar volúmenes
 	$(COMPOSE) --profile mobile --profile test stop
 
-logs: ## logs de db/api/web
-	$(COMPOSE) logs -f db api web
+logs: ## logs del stack
+	$(COMPOSE) logs -f db mongo kafka api relay projector web
 
 ps: ## contenedores
 	$(COMPOSE) ps
 
 restart: ## rebuild y levanta de nuevo
-	$(COMPOSE) up --build -d db api web
+	$(COMPOSE) up --build -d db mongo kafka api relay projector web
 
-db: ## solo Postgres
+db: ## Postgres (event store)
 	$(COMPOSE) up -d db
 
-api: ## solo API (+ db)
-	$(COMPOSE) up --build -d db api
+api: ## API (+ event store + read model)
+	$(COMPOSE) up --build -d db mongo kafka api relay projector
 
-web: ## solo web (+ api + db)
-	$(COMPOSE) up --build -d db api web
+web: ## web (+ backend completo)
+	$(COMPOSE) up --build -d db mongo kafka api relay projector web
 
 mobile: ## Metro/Expo en Docker. En el teléfono: Expo Go
 	HOST_IP="$(HOST_IP)" EXPO_PUBLIC_API_URL="http://$(HOST_IP):8080" \
@@ -60,8 +62,11 @@ test-api: ## go test del API
 test-client: ## tests del cliente de sync
 	$(COMPOSE) --profile test run --rm --build client-test
 
-psql: ## shell SQL
+psql: ## shell SQL (event store)
 	$(COMPOSE) exec db psql -U hola -d hola
+
+mongosh: ## shell Mongo (read model)
+	$(COMPOSE) exec mongo mongosh hola
 
 build: ## construye imágenes sin levantar
 	$(COMPOSE) --profile mobile --profile test build
